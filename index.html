@@ -167,8 +167,7 @@
   <div id="queue"></div>
 
   <details open style="margin-top:28px">
-  <summary style="cursor:pointer;font-family:var(--hand);font-size:17px">💬 Ask Factory <span class="sub" style="font-size:12px;font-weight:400">— ask it anything, it actually knows your people (click to fold away)</span></summary>
-  <div class="sketch" id="chatlog" style="margin-top:12px"><div style="color:var(--dim)">Try: “what needs my attention?” · “catch me up on @somefan” · “how are my fans doing?” · “what should I post today?”</div></div>
+  <summary style="cursor:pointer;font-family:var(--hand);font-size:17px">⚡ Quick commands <span class="sub" style="font-size:12px;font-weight:400">— one click, live answers. The 🧠 handles anything unusual you type below.</span></summary>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px" id="askChips">
     <button class="chip" onclick="fillAsk('what needs my attention?')">⚡ attention?</button>
     <button class="chip" onclick="fillAsk('how are my fans doing?')">💜 fans</button>
@@ -186,9 +185,10 @@
     <button class="chip" onclick="fillAsk('help')">❓ all commands</button>
   </div>
   <div style="display:flex;gap:8px;margin-top:10px">
-    <input type="text" id="chatbox" placeholder="ask your community copilot…" onkeydown="if(event.key==='Enter')ask()">
-    <button class="btn" onclick="ask()">send ➤</button>
+    <input type="text" id="chatbox" placeholder="…or type anything — the big brain answers" onkeydown="if(event.key==='Enter')ask()">
+    <button class="btn" onclick="ask()">ask ➤</button>
   </div>
+  <div id="askResult" style="margin-top:12px"></div>
   </details>
 
   <p class="foot">🛸 Superfan Factory — built for the XBorg × FanBase MCP builder competition<br>
@@ -757,19 +757,15 @@ async function skill(kind,arg){
 
 /* Chat */
 async function ask(){
-  const box=$('chatbox'),log=$('chatlog');const q=box.value.trim();if(!q)return;
-  box.value='';log.innerHTML+=`<div class="q"><span class="bub sketch" style="background:var(--acc)">${esc(q)}</span></div>`;
-  log.scrollTop=log.scrollHeight;
+  const box=$('chatbox');const q=box.value.trim();if(!q)return;
+  box.value='';
+  const out=$('askResult');
+  out.innerHTML='<div class="sketch card"><span class="spin"></span> good question — asking around…</div>';
   let reply=null;
   try{reply=await answer(q)}catch(e){reply='⚠️ '+e.message}
-  if(!reply){
-    log.innerHTML+='<div class="a"><span class="bub sketch alt" style="background:var(--card2)"><span class="spin"></span> good question — asking the big brain…</span></div>';
-    log.scrollTop=log.scrollHeight;
-    reply=await deepAnswer(q);
-    if(!reply)reply=await ansFallback(q.toLowerCase());
-  }
-  log.innerHTML+=`<div class="a"><span class="bub sketch alt" style="background:var(--card2)">${esc(reply)}</span></div>`;
-  log.scrollTop=log.scrollHeight;
+  if(!reply)reply=await deepAnswer(q);
+  if(!reply)reply=await ansFallback(q.toLowerCase());
+  out.innerHTML='<div class="sketch card" style="white-space:pre-wrap;line-height:1.65;font-size:14.5px">'+esc(reply)+'</div>';
 }
 /* Ask Factory v2 extras — extra brains + small talk */
 function ansAttention(_m){
@@ -823,7 +819,15 @@ const INTENTBRAIN=[
   {f:()=>ANS_THX[Math.floor(Math.random()*ANS_THX.length)], k:['thank','thanks','thx','appreciate','nice work','good job','love it','great']},
   {f:()=>ANS_HI[Math.floor(Math.random()*ANS_HI.length)], k:['hi','hello','hey','yo','sup','good morning','good evening','good afternoon','whats good']},
 ];
-function fillAsk(q){$('chatbox').value=q;ask()}
+async function fillAsk(q){
+  const out=$('askResult');
+  out.innerHTML='<div class="sketch card"><span class="spin"></span> working on: "'+esc(q)+'"…</div>';
+  let r=null;
+  try{r=await answer(q)}catch(e){r='⚠️ '+e.message}
+  if(!r)r=await deepAnswer(q);
+  if(!r)r=await ansFallback(q.toLowerCase());
+  out.innerHTML='<div class="sketch card" style="white-space:pre-wrap;line-height:1.65;font-size:14.5px">'+esc(r)+'</div>';
+}
 let puterReady=null;
 function loadPuter(){
   if(puterReady)return puterReady;
@@ -865,7 +869,13 @@ async function ansBestPost(_m){
     const posts=[];(function w(o,d){if(d>4||!o)return;if(Array.isArray(o))return o.forEach(v=>w(v,d+1));
       if(typeof o==='object'){if(o.text&&o.text.length>25&&(o.likes!=null||o.likeCount!=null||o.favoriteCount!=null))posts.push(o);
         Object.values(o).forEach(v=>w(v,d+1))}})(lu,0);
-    if(!posts.length)return 'could not rank recent posts yet — scanner is still warming up';
+    if(!posts.length){
+      const any=[];(function w2(o,d){if(d>4||!o)return;if(Array.isArray(o))return o.forEach(v=>w2(v,d+1));
+        if(typeof o==='object'){if(o.text&&String(o.text).length>25&&!String(o.text).startsWith('RT'))any.push(o);
+          Object.values(o).forEach(v=>w2(v,d+1))}})(lu,0);
+      if(any.length)return 'no like-counts exposed yet, but here are your latest posts:\n\n'+any.slice(0,3).map((p,i)=>`${i+1}. "${String(p.text).slice(0,140)}"\n   (${whenStr(p.created_at||p.createdAt||p.date)})`).join('\n\n');
+      return 'no recent posts visible to the scanner yet — give it a little time';
+    }
     posts.sort((x,y)=>((y.likes??y.likeCount??y.favoriteCount)||0)-((x.likes??x.likeCount??x.favoriteCount)||0));
     const p=posts[0],likes=(p.likes??p.likeCount??p.favoriteCount)??'?';
     return `BEST your best recent post (${likes} likes):\n\n"${String(p.text).slice(0,220)}"\n\ntip: drop it in the printer to recycle it for every platform.`;
