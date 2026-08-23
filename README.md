@@ -24,8 +24,7 @@ No signup. No backend. Your tokens never leave your browser.
 | 💤 **Win-back watch** | Catches fans going quiet and drafts re-engagement posts before they're gone |
 | 🖨️ **One idea, every platform** | Drop one thought → AI drafts it natively for X, Instagram, TikTok, YouTube, Discord |
 | 📅 **Event brain** | Pin mints/AMAs/giveaways → live countdowns, AI-drafted hype, **server-side scheduled publishing** (posts go out even if you never open the app) |
-| 🔎 **Bloodhounds — two modes** | ⚡ **Quick Sniff** (1–10 min live burst with a step-by-step mission log — always returns a report: finds, near-misses, or a clean-sweep summary) · 🩸 **Stakeout** (hunts until it finds — forever) |
-| 🌐 **Two noses** | Your channels (mentions, comments, DMs, activity via MCP) **+ the open web** (Hacker News, live job boards) with clickable links |
+| 🌐 **Open-web hunters** | Stakeout searches on Telegram (`/hunt creator jobs`) sweep Hacker News + live job boards around the clock — linked finds delivered to your pocket |
 | 📲 **Telegram remote control** | Full command menu: `/hunt` `/queue` `/draft` `/fans` `/numbers` `/mood` `/nightshift` — your community, from your pocket |
 | 🌙 **Night shift** | Every morning at 08:00: fresh posts + replies pre-drafted into your approval queue, announced by Telegram. *It worked while you slept.* |
 | 💬 **Ask Factory** | A chat that actually knows your people: *"catch me up on @fan"*, *"what's coming up?"*, *"how's the vibe?"* |
