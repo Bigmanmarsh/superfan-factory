@@ -149,6 +149,10 @@
   </div>
 
   <h2>⚖️ The approval queue <span class="sub" style="font-size:13px;font-family:var(--hand)">it drafts, you approve, nobody gets hurt</span></h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn ghost sm" onclick="clearDrafts()">🧹 clear view</button>
+    <button class="btn ghost sm" onclick="restoreDrafts()" id="restoreBtn" style="display:none"></button>
+  </div>
   <div id="queue"></div>
 
   <details open style="margin-top:28px">
@@ -298,6 +302,7 @@ async function refresh(){
      fade:fans.map(f=>({f,d:daysSince(f.lastActive)})).filter(x=>x.d>=1).sort((a,b)=>b.d-a.d).slice(0,5),
      recs:items.map(r=>({id:r.recommendationId||r.id,type:r.type,status:r.status,
        msg:(r.data&&r.data.message)||r.message||r.question||'',plat:((r.integrations||[{}])[0]||{}).name||'twitter'}))};
+  B.recs=B.recs.filter(r=>!(JSON.parse(localStorage.sf_dismissed||'[]')).includes(r.id));
   render();
 }
 function render(){
@@ -324,6 +329,9 @@ function render(){
   $('replyDrops').innerHTML=PLATFORMS.filter(p=>['twitter','instagram'].includes(p)).map(p=>
     `<button onclick="skill('replies','${p}');toggleMenu('mReply')">${PLABEL[p]} comments &amp; mentions</button>`).join('');
   $('stamp').textContent='last refreshed '+new Date().toLocaleString();
+  const _rb=$('restoreBtn');
+  if(_rb){const _h=(JSON.parse(localStorage.sf_dismissed||'[]')).length;
+    _rb.style.display=_h?'inline-block':'none';_rb.textContent='↩ restore '+_h+' hidden';}
   renderAlerts();
 }
 
@@ -539,6 +547,13 @@ const setAlerts=a=>localStorage[AB]=JSON.stringify(a.slice(0,60));
 function addAlert(text,key){const a=getAlerts();
   if(key&&a.some(x=>x.key===key&&!x.read))return;
   a.unshift({text,key,read:false,ts:new Date().toISOString()});setAlerts(a)}
+function clearDrafts(){
+  if(!confirm('Hide ALL drafts currently visible?\n\n(Nothing is deleted — they stay safely in FanBase. New drafts still appear.)'))return;
+  const cur=(B&&B.recs||[]).map(r=>r.id);
+  localStorage.sf_dismissed=JSON.stringify([...new Set([...JSON.parse(localStorage.sf_dismissed||'[]'),...cur])].slice(-500));
+  refresh();
+}
+function restoreDrafts(){ localStorage.removeItem('sf_dismissed'); refresh(); }
 function fmtAgo(ts){
   if(!ts)return'';
   const m=Math.floor((Date.now()-new Date(ts).getTime())/6e4);
