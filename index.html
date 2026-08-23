@@ -763,9 +763,103 @@ const INTENTBRAIN=[
   {f:()=>ANS_THX[Math.floor(Math.random()*ANS_THX.length)], k:['thank','thanks','thx','appreciate','nice work','good job','love it','great']},
   {f:()=>ANS_HI[Math.floor(Math.random()*ANS_HI.length)], k:['hi','hello','hey','yo','sup','good morning','good evening','good afternoon','whats good']},
 ];
+function whenStr(iso){try{return new Date(iso).toLocaleString()}catch(e){return'?'}}
+async function ansTrend(_m){
+  const a=B.accounts[0]; if(!a)return 'no account data yet';
+  try{
+    const r=await mcp('get_analytics_trend',{connectionId:a.connectionId,metric:'followers',
+      from:new Date(Date.now()-7*864e5).toISOString().slice(0,10),to:new Date().toISOString().slice(0,10)});
+    const pts=(Array.isArray(r)?r:(r?.points||r?.series||r?.data||[])).filter(p=>p&&p.value!=null);
+    if(pts.length>1){const d=(pts[pts.length-1].value||0)-(pts[0].value||0);
+      return `GROWTH ${PLABEL[a.platform]||a.platform} followers, 7 days: ${d>=0?'+':''}${d} (${pts[0].value} -> ${pts[pts.length-1].value})\n${d>0?'growth is alive — keep feeding it':d<0?'small dip — a hype post would not hurt':'flatline — the idea machine is right there'}`}
+    return `GROWTH no 7-day curve yet (snapshots collecting) — currently ${fmt(a.followers)} followers`;
+  }catch(e){return `GROWTH trend unavailable — currently ${fmt(a.followers)} followers`}
+}
+async function ansBestPost(_m){
+  try{
+    const lu=await mcp('lookup_socials',{apps:['twitter'],maxResults:10});
+    const posts=[];(function w(o,d){if(d>4||!o)return;if(Array.isArray(o))return o.forEach(v=>w(v,d+1));
+      if(typeof o==='object'){if(o.text&&o.text.length>25&&(o.likes!=null||o.likeCount!=null||o.favoriteCount!=null))posts.push(o);
+        Object.values(o).forEach(v=>w(v,d+1))}})(lu,0);
+    if(!posts.length)return 'could not rank recent posts yet — scanner is still warming up';
+    posts.sort((x,y)=>((y.likes??y.likeCount??y.favoriteCount)||0)-((x.likes??x.likeCount??x.favoriteCount)||0));
+    const p=posts[0],likes=(p.likes??p.likeCount??p.favoriteCount)??'?';
+    return `BEST your best recent post (${likes} likes):\n\n"${String(p.text).slice(0,220)}"\n\ntip: drop it in the printer to recycle it for every platform.`;
+  }catch(e){return 'best-post radar offline for a second — try again shortly'}
+}
+async function ansEngage(_m){
+  const f=B.sup[0],drift=B.fade[0];
+  if(!f&&!drift)return 'no fan data yet — let the scanner warm up';
+  const lines=['your engagement playbook for today:'];
+  if(f){const u=(f.profile||{}).username||f.name;
+    lines.push(`1. LOVE on @${u} (score ${f.engagementScore??'?'}) — say "shoutout @${u}" and I'll draft their flowers`)}
+  if(drift){const u=(drift.f.profile||{}).username||drift.f.name;
+    lines.push(`2. WIN BACK @${u} (${drift.d}d quiet) — say "draft winback"`)}
+  lines.push('3. clear the approval queue — fresh content keeps the algorithm happy');
+  return lines.join('\n');
+}
+async function ansDMs(_m){
+  try{const r=await mcp('list_conversations',{});
+    const n=(r||{}).total??((r||{}).conversations||[]).length,unread=(r||{}).unreadThreadCount??0;
+    return unread?`DMBOX ${unread} unread DM(s), ${n} total — say "draft replies" and I'll handle them in your voice`
+                 :`DMBOX inbox clear (${n} conversations, 0 unread) — the PA approves of your discipline`;
+  }catch(e){return 'DMBOX radar offline briefly — ask again in a minute'}
+}
+function ansBuy(_m){
+  const buys=getAlerts().filter(a=>a.text.includes('\u{1F4B0}')).slice(0,4);
+  return buys.length?['MONEY recent buy-intent spotted:',...buys.map(b=>'• '+b.text.slice(0,120))].join('\n')
+    :'MONEY no buy-intent flagged recently — hounds watch your comments and DMs around the clock';
+}
+function ansHuntStatus(_m){
+  const hs=getHn();
+  if(!hs.length)return 'no hounds out — say "find brand deals" and I\'ll release one right now';
+  return ['HOUNDS your pack:',...hs.map((h,i)=>`${h.active?'ON':'OFF'} ${i+1}. ${h.query} — ${h.finds.length} find(s)`)].join('\n');
+}
+async function ansFallback(t){
+  const words=t.replace(/[?.!,]/g,' ').split(/\s+/).filter(w=>w.length>4);
+  for(const w of words.slice(0,4)){
+    try{const r=await mcp('list_crm',{search:w,limit:1});
+      const f=(r.fans||[])[0];
+      if(f){const u=(f.profile||{}).username||f.name;
+        return `did you mean the fan @${u} (score ${f.engagementScore??'?'})? say "catch me up on @${u}" for their full story`}
+    }catch(e){}
+  }
+  return 'I can\'t answer that one yet — but here is my repertoire:\n\nASK: "how are my fans?" / "growth this week?" / "my best post?" / "any DMs?" / "what is coming up?"\nDO: "draft posts" / "find brand deals" / "shoutout @fan" / "draft winback" / "hype my AMA" / "scan mentions"\nHUNT: "hound status" / "find creator jobs"';
+}
 async function answer(q){
-  const t=q.toLowerCase();
-  if(/help|what can/.test(t))return 'I can answer things like:\n• “what needs my attention?”\n• “catch me up on @fan”\n• “how are my numbers?”\n• “what should I post today?”\n• “show my queue”';
+  const t=q.toLowerCase().trim();
+  if(/(draft|write|make).*(winback|win back)/.test(t)){const x=B.fade[0];
+    if(x){const u=(x.f.profile||{}).username||x.f.name;
+      skill('draft');return `DRAFTING win-back content — starting with @${u} (${x.d}d silent). Watch the mission log.`}
+    skill('draft');return 'DRAFTING nobody flagged as drifting yet, but I\'ll draft re-engagement content anyway — mission log running.'}
+  if(/shoutout|celebrate/.test(t)){
+    const m2=t.match(/@(\w{2,})/);const f=m2?null:B.sup[0];
+    skill('draft');return `DRAFTING a celebration post${f?` — @${(f.profile||{}).username||f.name} gets flowers today`:''} — mission log running.`}
+  if(/hype|announce|promote/.test(t)){
+    const evs=getEv().slice().sort((a,b)=>new Date(a.when)-new Date(b.when));const e=evs[0];
+    if(e){hypeEvent(e.id);return `DRAFTING hype for "${e.title}" (${untilStr(e.when)}) — mission log running.`}
+    skill('draft');return 'DRAFTING no events pinned — say "pin AMA friday 8pm" first. Meanwhile I\'ll draft general hype.'}
+  if(/^pin\s+/i.test(q)){
+    const m2=q.match(/^pin\s+(.+?)(?:\s+(on\s+)?(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday))?(?:\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?$/i);
+    if(m2&&m2[1]){const title=m2[1].trim();const day=m2[3],hh=m2[4],mm=m2[5],ap=m2[6];
+      let when=new Date();when.setSeconds(0,0);when.setHours(ap&&/pm/i.test(ap)&&+hh<12?+hh+12:hh?+hh:18,mm?+mm:0);
+      if(day){const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const di=days.indexOf(day);
+        if(di>=0){const diff=((di-when.getDay())+7)%7||7;when.setDate(when.getDate()+diff)}}
+      const evs=getEv();evs.push({id:Date.now(),title,when:when.toISOString(),flags:{}});
+      saveEv(evs);renderEvents();
+      return `PINNED: "${title}" — ${whenStr(when)}\ncountdown live in the calendar. say "hype it" when you want drafts.`}
+  }
+  if(/(find|hunt|search|look for)/.test(t)&&/(deal|job|collab|opportunit|brand|mint|drop|giveaway)/.test(t)){
+    const target=q.replace(/^.*?(find|hunt|search( for)?|look for)\s*/i,'').replace(/\b(please|right now|for me|now)\b/gi,'').trim();
+    if(target.length>2){$('huntBox').value=target;quickSniff(1);
+      return `HOUND released on "${target}" — 1-minute live burst running in the bloodhound section below.`}
+  }
+  if(/hound status/.test(t))return ansHuntStatus();
+  if(/(scan|draft|check|handle).*(mention|repl|comment)/.test(t)){skill('replies');return 'SCANNING mentions & comments — drafting replies in your voice. Mission log running.'}
+  if(/best post|top post/.test(t))return await ansBestPost();
+  if(/help|what can|commands/.test(t))return 'ASK: "what needs my attention?" / "how are my fans?" / "growth this week?" / "my best post?" / "any DMs?" / "what is coming up?" / "hound status"\nDO: "draft posts" / "draft replies" / "find brand deals" / "shoutout @fan" / "draft winback" / "hype my AMA" / "pin AMA friday 8pm" / "community mood"';
+
+  
   if(/attention|today|briefing|summary|morning/.test(t)){
     const s=B.sup[0],u=s?((s.profile||{}).username||s.name):null;
     return['Here’s what matters today:',u?`💜 @${u} is carrying your hype (score ${s.engagementScore??'?'})`:'',
@@ -789,15 +883,18 @@ async function answer(q){
       ...ev.slice(0,5).map(e=>`• ${e.type||'event'} on ${PLABEL[e.platform]||e.platform||'?'} ${String(e.createdAt||e.time||'').slice(0,10)}`),
       '💡 want a shoutout? hit ✨ or the 🖨️'].join('\n');
   }
-  if(/draft|what should i post|post ideas?/.test(t)){skill('draft',CREATOR_SKILL[PLATFORMS.find(p=>CREATOR_SKILL[p])]||'post-creator-x');return'✍️ on it — reading your community (~60s), bell will ring';}
-  if(/repl(y|ies)|mentions?/.test(t)){skill('replies','twitter');return'💬 scanning mentions & drafting replies (~60s)';}
-  let best=null,score=0;
-  for(const it of INTENTBRAIN){let s=0;
-    for(const k of it.k){if(t.includes(k))s+=k.includes(' ')?2:1;}
-    if(s>score){score=s;best=it}}
-  if(best&&score>=1)return best.f();
-  return 'hmm, I don\'t speak that dialect yet 🤔 — try “help”, or ask about fans, numbers, queue, events, moods, drafts or hunts.';
+  if(/(dm|message|inbox)/.test(t))return await ansDMs();
+  if(/buy|sales|money|who wants to buy|purchase/.test(t))return ansBuy();
+  if(/engage|who should i|talk to|reach out/.test(t))return await ansEngage();
+  if(/growth|trend|this week|over time|how many new/.test(t))return await ansTrend();
+  if(/event|calendar|coming up|countdown|schedule/.test(t))return await ansEvents();
+  if(/mood|vibe|feel|sentiment/.test(t)){skill('mood',activeSentiment());return 'SCANNING community mood — I\'ll ring the bell.'}
+  if(/fan|community|supporters|audience|people/.test(t))return await ansFans();
+  if(/draft|write|post idea|what should i post|content|ideas/.test(t)){skill('draft');return 'DRAFTING — reading your community (~60s). Mission log running.'}
+  return await ansFallback(t);
 }
+
+
 
 /* Boot — with crash-proofing: a bug shows a message, never a blank page */
 window.onerror=function(msg){try{
