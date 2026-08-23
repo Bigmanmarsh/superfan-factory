@@ -169,6 +169,22 @@
   <details open style="margin-top:28px">
   <summary style="cursor:pointer;font-family:var(--hand);font-size:17px">💬 Ask Factory <span class="sub" style="font-size:12px;font-weight:400">— ask it anything, it actually knows your people (click to fold away)</span></summary>
   <div class="sketch" id="chatlog" style="margin-top:12px"><div style="color:var(--dim)">Try: “what needs my attention?” · “catch me up on @somefan” · “how are my fans doing?” · “what should I post today?”</div></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px" id="askChips">
+    <button class="chip" onclick="fillAsk('what needs my attention?')">⚡ attention?</button>
+    <button class="chip" onclick="fillAsk('how are my fans doing?')">💜 fans</button>
+    <button class="chip" onclick="fillAsk('growth this week?')">📈 growth</button>
+    <button class="chip" onclick="fillAsk('my best post?')">🏆 best post</button>
+    <button class="chip" onclick="fillAsk('any DMs?')">📬 DMs</button>
+    <button class="chip" onclick="fillAsk('what is coming up?')">📅 events</button>
+    <button class="chip" onclick="fillAsk('hound status')">🐕 hounds</button>
+    <button class="chip" onclick="fillAsk('draft posts')">✍️ draft posts</button>
+    <button class="chip" onclick="fillAsk('draft replies')">💬 draft replies</button>
+    <button class="chip" onclick="fillAsk('find brand deals')">🔎 find deals</button>
+    <button class="chip" onclick="fillAsk('shoutout top fan')">🌸 shoutout</button>
+    <button class="chip" onclick="fillAsk('draft winback')">💤 winback</button>
+    <button class="chip" onclick="fillAsk('community mood')">🌡️ mood</button>
+    <button class="chip" onclick="fillAsk('help')">❓ all commands</button>
+  </div>
   <div style="display:flex;gap:8px;margin-top:10px">
     <input type="text" id="chatbox" placeholder="ask your community copilot…" onkeydown="if(event.key==='Enter')ask()">
     <button class="btn" onclick="ask()">send ➤</button>
@@ -744,7 +760,14 @@ async function ask(){
   const box=$('chatbox'),log=$('chatlog');const q=box.value.trim();if(!q)return;
   box.value='';log.innerHTML+=`<div class="q"><span class="bub sketch" style="background:var(--acc)">${esc(q)}</span></div>`;
   log.scrollTop=log.scrollHeight;
-  let reply;try{reply=await answer(q)}catch(e){reply='⚠️ '+e.message}
+  let reply=null;
+  try{reply=await answer(q)}catch(e){reply='⚠️ '+e.message}
+  if(!reply){
+    log.innerHTML+='<div class="a"><span class="bub sketch alt" style="background:var(--card2)"><span class="spin"></span> good question — asking the big brain…</span></div>';
+    log.scrollTop=log.scrollHeight;
+    reply=await deepAnswer(q);
+    if(!reply)reply=await ansFallback(q.toLowerCase());
+  }
   log.innerHTML+=`<div class="a"><span class="bub sketch alt" style="background:var(--card2)">${esc(reply)}</span></div>`;
   log.scrollTop=log.scrollHeight;
 }
@@ -800,6 +823,30 @@ const INTENTBRAIN=[
   {f:()=>ANS_THX[Math.floor(Math.random()*ANS_THX.length)], k:['thank','thanks','thx','appreciate','nice work','good job','love it','great']},
   {f:()=>ANS_HI[Math.floor(Math.random()*ANS_HI.length)], k:['hi','hello','hey','yo','sup','good morning','good evening','good afternoon','whats good']},
 ];
+function fillAsk(q){$('chatbox').value=q;ask()}
+let puterReady=null;
+function loadPuter(){
+  if(puterReady)return puterReady;
+  puterReady=new Promise((res,rej)=>{
+    const sc=document.createElement('script');sc.src='https://js.puter.com/v2/';
+    sc.onload=()=>res(true);sc.onerror=()=>rej(new Error('deep brain unavailable'));
+    document.head.appendChild(sc);
+    setTimeout(()=>rej(new Error('deep brain timeout')),15000);
+  });
+  return puterReady;
+}
+async function deepAnswer(q){
+  try{
+    await loadPuter();
+    const ctx=`Community snapshot: ${B.accounts.map(a=>`${PLABEL[a.platform]||a.platform} @${a.handle}: ${a.followers} followers`).join('; ')||'no accounts'}; ${B.total} fans tracked; top fan: ${B.sup[0]?'@'+((B.sup[0].profile||{}).username||B.sup[0].name):'unknown'}; ${B.fade.length} fans going quiet; ${B.recs.length} drafts pending approval; events: ${getEv().map(e=>e.title).join(', ')||'none'}; hounds hunting: ${getHn().filter(h=>h.active).length}.`;
+    const sys='You are Superfan Factory, a witty community copilot for a social creator. Answer in under 120 words, practical, warm. You cannot post or DM directly — for actions, point to the app buttons or Telegram commands (/draft /hunt /queue). Use this live community data: '+ctx;
+    const resp=await puter.ai.chat(sys+'\n\nUser question: '+q,{model:'gpt-4o-mini'});
+    let txt='';
+    if(resp){if(resp.message&&resp.message.content)txt=resp.message.content;else if(resp.text)txt=resp.text;else txt=String(resp)}
+    txt=String(txt).trim();
+    return txt&&txt!=='undefined'&&txt.length>3?txt.slice(0,1200):'';
+  }catch(e){return ''}
+}
 function whenStr(iso){try{return new Date(iso).toLocaleString()}catch(e){return'?'}}
 async function ansTrend(_m){
   const a=B.accounts[0]; if(!a)return 'no account data yet';
@@ -928,7 +975,7 @@ async function answer(q){
   if(/mood|vibe|feel|sentiment/.test(t)){skill('mood',activeSentiment());return 'SCANNING community mood — I\'ll ring the bell.'}
   if(/fan|community|supporters|audience|people/.test(t))return await ansFans();
   if(/draft|write|post idea|what should i post|content|ideas/.test(t)){skill('draft');return 'DRAFTING — reading your community (~60s). Mission log running.'}
-  return await ansFallback(t);
+  return null;
 }
 
 
