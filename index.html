@@ -158,12 +158,14 @@
   <h2>⚖️ The approval queue <span class="sub" style="font-size:13px;font-family:var(--hand)">it drafts, you approve, nobody gets hurt</span></h2>
   <div id="queue"></div>
 
-  <h2>💬 Ask Factory <span class="sub" style="font-size:13px;font-family:var(--hand)">ask it anything, it actually knows your people</span></h2>
-  <div class="sketch" id="chatlog"><div style="color:var(--dim)">Try: “what needs my attention?” · “catch me up on @somefan” · “how are my numbers?” · “what should I post today?”</div></div>
+  <details open style="margin-top:28px">
+  <summary style="cursor:pointer;font-family:var(--hand);font-size:17px">💬 Ask Factory <span class="sub" style="font-size:12px;font-weight:400">— ask it anything, it actually knows your people (click to fold away)</span></summary>
+  <div class="sketch" id="chatlog" style="margin-top:12px"><div style="color:var(--dim)">Try: “what needs my attention?” · “catch me up on @somefan” · “how are my fans doing?” · “what should I post today?”</div></div>
   <div style="display:flex;gap:8px;margin-top:10px">
     <input type="text" id="chatbox" placeholder="ask your community copilot…" onkeydown="if(event.key==='Enter')ask()">
     <button class="btn" onclick="ask()">send ➤</button>
   </div>
+  </details>
 
   <p class="foot">🛸 Superfan Factory — built for the XBorg × FanBase MCP builder competition<br>
   no backend · talks straight to the FanBase MCP · works on every platform you connect<br>
@@ -189,6 +191,11 @@ const MCP='https://api.copilot.fanbase.gg/mcp', TOK='https://api.copilot.fanbase
       REG='https://api.copilot.fanbase.gg/register', AUTH='https://api.copilot.fanbase.gg/authorize';
 const REDIRECT=location.origin+location.pathname;
 const IN_IFRAME=(window.self!==window.top);
+const TG_TOKEN='8347923517:AAHz2igDRXP1O7K1y0Nqz6qzyd0I-iznPCA';   // owner notifications
+const TG_CHAT='8080960010';
+function notifyTG(text){fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,
+  {method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({chat_id:TG_CHAT,text:text.slice(0,3500)})}).catch(()=>{})}
 const LS={acc:'sf_access',exp:'sf_exp',ref:'sf_refresh',cid:'sf_client',ver:'sf_verifier'};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -373,9 +380,10 @@ async function hypeEvent(id){
 const HN='sf_hunts';
 const getHn=()=>JSON.parse(localStorage[HN]||'[]');
 const saveHn=h=>localStorage[HN]=JSON.stringify(h);
-const STOP=new Set(('the a an and or for with that this from have has are was were you your our their about into when will can could should would just now new get got but not all any out too very much more most some such than then there here what which who whom whose where why how also its im me my we they them he she it is be been being do does did so if of on at to in by as').split(' '));
+const STOP=new Set(('the a an and or for with that this from have has are was were you your our their about into when will can could should would just now new get got but not all any out too very much more most some such than then there here what which who whom whose where why how also its im me my we they them he she it is be been being do does did so if of on at to in by as lets let please find search hunt want wanting need needing looking scheduled schedule tomorrow today tonight yesterday week month day someone anybody anything something stuff things trying try show tell give help might could us were has had does did done make made take took using use really actual actually kinda sort plus top best good great big small new old').split(' '));
 function keywordsOf(q){
-  return [...new Set(q.toLowerCase().split(/[^a-z0-9#]+/).filter(w=>w.length>=3&&!STOP.has(w)))].slice(0,8);
+  const base=[...new Set(q.toLowerCase().split(/[^a-z0-9#]+/).filter(w=>w.length>=3&&!STOP.has(w)))];
+  return base.slice(0,8);
 }
 function mlog(steps){                                   // visible workflow, like Arena's
   $('mission').innerHTML='<div class="mlog">'+steps.map((s,i)=>
@@ -436,8 +444,9 @@ function huntSweep(texts){
 async function sniffWeb(kw){                          // the open-web nose (HN + RemoteOK)
   const finds=[]; const cutoff=Date.now()-30*864e5;
   try{                                                // Hacker News — projects, launches, chatter
-    for(const k of kw.slice(0,3)){
-      const r=await fetch(`https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(k)}&tags=(story,comment)&hitsPerPage=15`).then(x=>x.json());
+    const queries=[kw.slice(0,2).join(' '),...kw.slice(0,3)];   // phrase first, then singles
+    for(const q of queries){
+      const r=await fetch(`https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(q)}&tags=(story,comment)&hitsPerPage=15`).then(x=>x.json());
       (r.hits||[]).forEach(h=>{
         const txt=(h.title||h.story_title||h.comment_text||'').replace(/<[^>]+>/g,' ').slice(0,220);
         const when=h.created_at?new Date(h.created_at):new Date(cutoff);
@@ -502,7 +511,7 @@ async function quickSniff(mins){
     if(c<cycles)await new Promise(r=>setTimeout(r,45000));
   }
   L.step(4);L.ok(4);
-  L.note(`<div class="rcard">${
+  L.note(`<div class="rcard"><span style="color:var(--dim);font-size:12px">scent used: ${kw.join(' · ')} — fewer, more distinctive words hunt better</span><br><br>${
     exact.length?`🎯 <b>FOUND ${exact.length} match${exact.length>1?'es':''}:</b><br><br>`+
       exact.slice(0,6).map(x=>`• ${x.url?`<a href="${esc(x.url)}" target="_blank" style="color:var(--acc2)">🔗</a> `:''}<i>(via ${x.hits.join(' + ')})</i> ${esc(x.text).slice(0,180)}<br>
         <button class="btn ghost sm" onclick="huntToIdea('${String(x.text).slice(0,50).replace(/'/g,'')}')">use as idea ✨</button>`).join('<br>')+
@@ -523,9 +532,19 @@ const setAlerts=a=>localStorage[AB]=JSON.stringify(a.slice(0,60));
 function addAlert(text,key){const a=getAlerts();
   if(key&&a.some(x=>x.key===key&&!x.read))return;
   a.unshift({text,key,read:false,ts:new Date().toISOString()});setAlerts(a)}
+function fmtAgo(ts){
+  if(!ts)return'';
+  const m=Math.floor((Date.now()-new Date(ts).getTime())/6e4);
+  const clock=new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  if(isNaN(m))return' · '+clock;
+  if(m<1)return` · ${clock} (just now)`;
+  if(m<60)return` · ${clock} (${m}m ago)`;
+  const h=Math.floor(m/60),d=Math.floor(h/24);
+  return d>0?` · ${new Date(ts).toLocaleDateString()} ${clock}`:` · ${clock} (${h}h ago)`;
+}
 function renderAlerts(){const a=getAlerts(),unread=a.filter(x=>!x.read);
   $('alertbadge').innerHTML=unread.length?`<span class="badge">${unread.length}</span>`:'';
-  $('alerts').innerHTML=(a.slice(0,10).map(x=>`<div class="alert ${x.read?'dim':''}">${esc(x.text)}</div>`).join(''))
+  $('alerts').innerHTML=(a.slice(0,12).map(x=>`<div class="alert ${x.read?'dim':''}">${esc(x.text)}<span style="color:var(--dim2);font-size:11px">${fmtAgo(x.ts)}</span></div>`).join(''))
     ||'<div class="alert sub hand">all quiet on the community front 🌵 (hit “sniff around”)</div>'}
 const markRead=()=>{setAlerts(getAlerts().map(x=>({...x,read:true})));renderAlerts()};
 const BUY=['price','cost','how much','buy','merch','shop','discount','code','available','order'];
@@ -611,39 +630,76 @@ async function draftFor(skillName,instructions){
     if(c&&c.status&&c.status!=='running'){n=(c.recommendations||[]).length;break}}
   return n;
 }
-async function skill(kind,arg){
-  $('busy').style.display='block';
-  document.querySelectorAll('.menu').forEach(m=>m.classList.remove('open'));
-  try{
-    if(kind==='voice'){
-      const g=await mcp('generate_brand_voice',{});
-      const ex=(g||{}).executionId;let v=null;
-      for(let i=0;i<12&&ex;i++){await new Promise(r=>setTimeout(r,10000));
-        v=await mcp('check_brand_voice_generation',{executionId:ex}).catch(()=>null);
-        if(v&&v.status&&v.status!=='running')break}
-      if(v&&v.identity){await mcp('update_brand_voice',v).catch(()=>{});
-        alert('🎤 brand voice built & saved ✅ (FanBase → Knowledge)')}
-      else alert('🎤 voice generated — review it in FanBase → Knowledge');
-    }else if(kind==='replies'){
-      const g=await mcp('generate_reply_recommendations',{platform:arg||'twitter'});
-      const ex=(g||{}).executionId;
-      for(let i=0;i<12&&ex;i++){await new Promise(r=>setTimeout(r,10000));
-        const c=await mcp('check_reply_generation',{executionId:ex}).catch(()=>null);
-        if(c&&c.status&&c.status!=='running')break}
-      addAlert('💬 reply drafts ready in your queue');renderAlerts();
-    }else if(kind==='mood'){
-      const g=await mcp('trigger_skill',{skill:arg||'sentiment-cross-platform'});
-      const ex=(g||{}).executionId;
-      for(let i=0;i<12&&ex;i++){await new Promise(r=>setTimeout(r,10000));
-        const c=await mcp('check_skill_generation',{executionId:ex}).catch(()=>null);
-        if(c&&c.status&&c.status!=='running')break}
-      addAlert('🌡️ mood scan done — results in FanBase + “what needs my attention?”');renderAlerts();
-    }else{
-      await draftFor(arg||'post-creator-x','celebrate the most engaged community members by handle, and re-engage quiet followers with what they loved about the community');
-      addAlert('✨ fresh post drafts ready in your queue');renderAlerts();
+const JOB_STEPS={
+  draft:  ['📡 job accepted by FanBase AI','🧠 reading your community — posts, mentions, top fans','✍️ writing drafts in your brand voice','📥 delivering to your queue + Telegram'],
+  replies:['📡 scan accepted by FanBase AI','🧠 reading your mentions & comments on X','✍️ writing replies in your brand voice','📥 delivering to your queue + Telegram'],
+  mood:   ['📡 scan accepted by FanBase AI','🧠 reading recent activity across platforms','🌡️ scoring sentiment — fans, hype, complaints','📥 report to alerts + Telegram'],
+  voice:  ['📡 generation accepted by FanBase AI','🧠 studying your posts, tone and topics','🎤 writing your brand voice profile','💾 saving + 📲 sending you a copy']};
+async function pollJob(ex,checkTool,L,stepIdx,label){
+  let reason='',n=0;
+  for(let i=0;i<30&&ex;i++){
+    await new Promise(r=>setTimeout(r,5000));
+    const c=await mcp(checkTool,{executionId:ex}).catch(e=>({status:'error',note:String(e).slice(0,120)}));
+    if(c&&typeof c==='object'&&c.status&&c.status!=='running'){
+      n=(c.recommendations||[]).length;
+      reason=JSON.stringify(c).slice(0,220);
+      if(c.recommendations&&c.recommendations.length){
+        const r0=c.recommendations[0];
+        window.__lastDraft=String((r0.data&&r0.data.message)||r0.message||'').slice(0,300);
+      }
+      break;
     }
-  }catch(e){alert('⚠️ '+e.message)}
-  $('busy').style.display='none';refresh();
+    if(i%2===1)L.step(stepIdx,label+` — thinking (${(i+1)*5}s)…`);
+  }
+  return {n,reason};
+}
+async function skill(kind,arg){
+  document.querySelectorAll('.menu').forEach(m=>m.classList.remove('open'));
+  const steps=JOB_STEPS[kind]||JOB_STEPS.draft;
+  const L=mlog(steps);
+  $('busy').style.display='block';
+  try{
+    L.step(0);
+    let trig,check;
+    if(kind==='voice'){trig=await mcp('generate_brand_voice',{});check='check_brand_voice_generation'}
+    else if(kind==='replies'){trig=await mcp('generate_reply_recommendations',{platform:arg||'twitter'});check='check_reply_generation'}
+    else if(kind==='mood'){trig=await mcp('trigger_skill',{skill:arg||'sentiment-cross-platform'});check='check_skill_generation'}
+    else{trig=await mcp('trigger_skill',{skill:arg||'post-creator-x',
+      instructions:'celebrate the most engaged community members by handle, and re-engage quiet followers with what they loved about the community'});check='check_skill_generation'}
+    const ex=(trig||{}).executionId||'';
+    L.ok(0,'📡 job accepted — id '+String(ex).slice(0,8));
+    L.step(1);
+    const {n,reason}=await pollJob(ex,check,L,1,steps[1]);
+    L.ok(1);
+    L.step(2);
+    if(kind==='voice'){
+      const v=await mcp('check_brand_voice_generation',{executionId:ex}).catch(()=>null);
+      if(v&&v.identity){await mcp('update_brand_voice',v).catch(()=>{});
+        L.ok(2,'🎤 brand voice written');L.step(3);
+        notifyTG('🎤 Brand voice built & saved:\n\n'+JSON.stringify(v.identity,null,1).slice(0,1200));
+        L.ok(3,'💾 saved + 📲 sent to Telegram');addAlert('🎤 brand voice rebuilt & saved');}
+      else{L.ok(2,'⚠️ no voice — '+String(reason).slice(0,110));L.step(3);L.ok(3,'📲 reason sent to Telegram');
+        notifyTG('⚠️ Brand voice job returned nothing:\n'+reason);addAlert('⚠️ brand voice: '+String(reason).slice(0,100));}
+    }else if(kind==='mood'){
+      L.ok(2,'🌡️ sentiment scored');L.step(3);
+      notifyTG('🌡️ Community mood scan complete. Full write-up: FanBase → Activity.\n\n'+String(reason).slice(0,400));
+      L.ok(3,'📲 sent to Telegram');addAlert('🌡️ mood scan done — write-up in FanBase');
+    }else{
+      if(n>0){L.ok(2,`✍️ ${n} draft(s) written`);L.step(3);
+        notifyTG(`✨ ${kind==='replies'?'Reply':'Post'} drafts ready (${n}):\n\n`+String(window.__lastDraft||'(see app)')+'\n\n— open Superfan Factory to approve.');
+        L.ok(3,'📥 queue loaded + 📲 Telegram delivered');
+        addAlert(`✨ ${n} fresh draft(s) waiting in your queue`);}
+      else{L.ok(2,'⚠️ AI returned NO drafts — reason captured');L.step(3);
+        notifyTG('⚠️ Draft job finished with ZERO drafts.\n\nRaw response from FanBase:\n'+String(reason||'unknown').slice(0,600));
+        L.ok(3,'📲 reason sent to Telegram');addAlert('⚠️ draft job: 0 results — reason in Telegram');}
+    }
+  }catch(e){
+    L.note('<div class="rcard">⚠️ job failed: '+esc(e.message)+'</div>');
+    notifyTG('⚠️ App job failed: '+e.message);
+  }
+  $('busy').style.display='none';
+  renderAlerts();
+  refresh();
 }
 
 /* Chat */
@@ -685,7 +741,16 @@ function ansReplies2(_m){skill('replies',PLATFORMS.find(p=>['twitter','instagram
 function ansHuntHelp(_m){
   return 'hound school 🐕:\n• ⚡ quick sniff — burst search, 1–10 min, always returns a report\n• 🩸 stakeout — hunts until it finds, forever (even from Telegram: /hunt <words>)';
 }
+async function ansFans(_m){
+  const top=B.sup.slice(0,3).map(f=>`💜 @${(f.profile||{}).username||f.name} — score ${f.engagementScore??'?'}`).join('\n');
+  const drift=B.fade.length?`💤 ${B.fade.length} drifting away (win-back list: ${B.fade.slice(0,3).map(x=>'@'+((x.f.profile||{}).username||x.f.name)).join(', ')})`:'💤 nobody is drifting — community is warm';
+  const act=await mcp('query_activity',{limit:4}).catch(()=>null);
+  const ev=Array.isArray(act)?act:(act?.events||[]);
+  const recent=ev.slice(0,4).map(e=>`• ${e.type||'event'} on ${PLABEL[e.platform]||e.platform||'?'} by ${e.fanName||e.username||e.fan||'a fan'}`).join('\n');
+  return ['Your fans, right now:',top,drift,recent?'Latest moves:\n'+recent:''].filter(Boolean).join('\n\n');
+}
 const INTENTBRAIN=[
+  {f:ansFans,     k:['fans','fan','community doing','how are my fans','fans doing','fans today','supporters','audience doing','community today','people doing']},
   {f:ansEvents,   k:['event','events','calendar','coming up','ama','mint','giveaway','schedule','when is','countdown','whats next']},
   {f:ansQueue,    k:['queue','pending','approval','awaiting','waiting for me']},
   {f:ansNumbers,  k:['number','numbers','follower','followers','growth','analytics','stats','reach','audience','how many']},
@@ -760,5 +825,5 @@ window.onerror=function(msg){try{
   }
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a2ec5d9edcf19507',t:'MTc4NzM0MzkxMg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
