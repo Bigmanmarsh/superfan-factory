@@ -129,24 +129,9 @@
     <div id="evList" style="margin-top:12px"></div>
   </div>
 
-  <h2>🔎 The bloodhounds <span class="sub" style="font-size:13px;font-family:var(--hand)">pick a mode: quick burst, or relentless stakeout</span></h2>
-  <div class="sketch alt card" style="transform:rotate(.3deg)">
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <input type="text" id="huntBox" style="min-width:200px" placeholder="what are we hunting? e.g. brand deal, collab, jobs">
-      <button class="btn sm" onclick="toggleDur()">⚡ quick sniff</button>
-      <button class="btn ghost sm" onclick="stakeout()">🩸 stakeout</button>
-    </div>
-    <div id="durRow" style="display:none;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
-      <span class="sub hand" style="font-size:13px">sniff for:</span>
-      <button class="btn ghost sm" onclick="quickSniff(1)">1 min</button>
-      <button class="btn ghost sm" onclick="quickSniff(2)">2 min</button>
-      <button class="btn ghost sm" onclick="quickSniff(5)">5 min</button>
-      <button class="btn ghost sm" onclick="quickSniff(10)">10 min</button>
-    </div>
-    <div class="hint" id="huntHint" style="font-size:12.5px;color:var(--dim);margin-top:8px;font-family:var(--hand)">
-      ⚡ quick = short live burst, always returns a full report · 🩸 stakeout = hunts until it finds — forever (even while you're away, via the Heart)</div>
-    <div id="mission"></div>
-    <div id="huntList" style="margin-top:12px"></div>
+  <h2>📋 Mission log <span class="sub" style="font-size:13px;font-family:var(--hand)">watch every job work — step by step, no magic tricks</span></h2>
+  <div class="sketch card" style="transform:rotate(.3deg)">
+    <div id="mission"><div class="sub hand" style="padding:4px 0">idle — run a draft, a mood scan or hit “sniff around” and the workflow appears here 📡</div></div>
   </div>
 
   <h2>💜 The superfans <span class="sub" style="font-size:13px;font-family:var(--hand)">the ones who'd fight for you in the replies</span></h2>
@@ -175,10 +160,8 @@
     <button class="chip" onclick="fillAsk('my best post?')">🏆 best post</button>
     <button class="chip" onclick="fillAsk('any DMs?')">📬 DMs</button>
     <button class="chip" onclick="fillAsk('what is coming up?')">📅 events</button>
-    <button class="chip" onclick="fillAsk('hound status')">🐕 hounds</button>
     <button class="chip" onclick="fillAsk('draft posts')">✍️ draft posts</button>
     <button class="chip" onclick="fillAsk('draft replies')">💬 draft replies</button>
-    <button class="chip" onclick="fillAsk('find brand deals')">🔎 find deals</button>
     <button class="chip" onclick="fillAsk('shoutout top fan')">🌸 shoutout</button>
     <button class="chip" onclick="fillAsk('draft winback')">💤 winback</button>
     <button class="chip" onclick="fillAsk('community mood')">🌡️ mood</button>
@@ -587,8 +570,8 @@ async function scan(show){
   texts.forEach(t=>{const low=t.toLowerCase();
     if(BUY.some(b=>low.includes(b)))addAlert(`💰 someone might be trying to give you money: “${t.slice(0,100)}”`,'buy'+t.slice(0,40).toLowerCase())});
   if(texts.length)addAlert(`📈 sniffed ${texts.length} items across your channels — latest activity fresh`);
-  L.step(4);huntSweep(texts);L.ok(4,`feeding the hounds 🐕 — ${getHn().filter(h=>h.active).length} on duty`);
-  renderAlerts();renderHunts();
+  L.step(4);L.ok(4,'🔔 alerts + bell updated');
+  renderAlerts();
 }
 
 /* Actions */
@@ -943,15 +926,9 @@ async function answer(q){
       saveEv(evs);renderEvents();
       return `PINNED: "${title}" — ${whenStr(when)}\ncountdown live in the calendar. say "hype it" when you want drafts.`}
   }
-  if(/(find|hunt|search|look for)/.test(t)&&/(deal|job|collab|opportunit|brand|mint|drop|giveaway)/.test(t)){
-    const target=q.replace(/^.*?(find|hunt|search( for)?|look for)\s*/i,'').replace(/\b(please|right now|for me|now)\b/gi,'').trim();
-    if(target.length>2){$('huntBox').value=target;quickSniff(1);
-      return `HOUND released on "${target}" — 1-minute live burst running in the bloodhound section below.`}
-  }
-  if(/hound status/.test(t))return ansHuntStatus();
   if(/(scan|draft|check|handle).*(mention|repl|comment)/.test(t)){skill('replies');return 'SCANNING mentions & comments — drafting replies in your voice. Mission log running.'}
   if(/best post|top post/.test(t))return await ansBestPost();
-  if(/help|what can|commands/.test(t))return 'ASK: "what needs my attention?" / "how are my fans?" / "growth this week?" / "my best post?" / "any DMs?" / "what is coming up?" / "hound status"\nDO: "draft posts" / "draft replies" / "find brand deals" / "shoutout @fan" / "draft winback" / "hype my AMA" / "pin AMA friday 8pm" / "community mood"';
+  if(/help|what can|commands/.test(t))return 'ASK: "what needs my attention?" / "how are my fans?" / "growth this week?" / "my best post?" / "any DMs?" / "what is coming up?"\nDO: "draft posts" / "draft replies" / "shoutout @fan" / "draft winback" / "hype my AMA" / "pin AMA friday 8pm" / "community mood"';
 
   
   if(/attention|today|briefing|summary|morning/.test(t)){
@@ -1006,7 +983,7 @@ window.onerror=function(msg){try{
     $('gate').style.display='none';                 // hide the login gate — we're in
     $('app').style.display='block';
     await refresh();
-    renderEvents();renderHunts();
+    renderEvents();
     scan(false).catch(()=>{});
     setInterval(()=>{renderEvents()},30000);          // live countdowns
     setInterval(()=>{scan(false).catch(()=>{})},15*60*1000); // hounds sniff every 15 min while open
