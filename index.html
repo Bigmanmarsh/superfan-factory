@@ -69,6 +69,9 @@
 .mstep.run:before{content:"◐ ";color:var(--warn);display:inline-block;animation:r 1s linear infinite}
 .mstep.pend:before{content:"○ ";color:var(--dim2)}
 .rcard{background:var(--card2);border:2px dashed var(--ink);border-radius:14px;padding:14px;margin-top:12px;font-size:14px;line-height:1.6}
+.apanel{position:fixed;top:82px;right:14px;width:min(350px,92vw);max-height:72vh;overflow-y:auto;z-index:60;display:none;box-shadow:6px 6px 0 rgba(0,0,0,.45)}
+.apanel.open{display:block}
+.abell{position:relative}
   .doodle{vertical-align:-4px;margin-right:6px}
   #ideaBar{padding:18px;margin-top:24px;transform:rotate(.3deg)}
   #ideaBar .hint{font-size:12.5px;color:var(--dim);margin-top:8px;font-family:var(--hand)}
@@ -85,6 +88,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick="scan(true)">🔍 sniff around</button>
+      <button class="btn ghost sm" onclick="toggleAlerts()">🔔 <span id="bellBadge">0</span></button>
       <button class="btn ghost sm" onclick="logout()">🚪 bye</button>
     </div>
   </div>
@@ -151,9 +155,13 @@
   <h2>💤 The quiet ones <span class="sub" style="font-size:13px;font-family:var(--hand)">they ghosted you (politely) — win them back</span></h2>
   <div id="fadefans"></div>
 
-  <h2>🔔 Alerts <span id="alertbadge"></span></h2>
-  <div class="sketch" id="alerts"></div>
-  <button class="btn ghost sm" style="margin-top:8px" onclick="markRead()">mark all read ✓</button>
+  <div class="sketch apanel" id="alertPanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:2px dashed var(--line)">
+      <b class="hand" style="font-size:15px">🔔 Alerts</b>
+      <span><button class="btn ghost sm" onclick="markRead()">read all ✓</button> <button class="btn ghost sm" onclick="toggleAlerts()">✕</button></span>
+    </div>
+    <div id="alerts" style="padding:6px 0"></div>
+  </div>
 
   <h2>⚖️ The approval queue <span class="sub" style="font-size:13px;font-family:var(--hand)">it drafts, you approve, nobody gets hurt</span></h2>
   <div id="queue"></div>
@@ -543,7 +551,7 @@ function fmtAgo(ts){
   return d>0?` · ${new Date(ts).toLocaleDateString()} ${clock}`:` · ${clock} (${h}h ago)`;
 }
 function renderAlerts(){const a=getAlerts(),unread=a.filter(x=>!x.read);
-  $('alertbadge').innerHTML=unread.length?`<span class="badge">${unread.length}</span>`:'';
+  const bb=$('bellBadge'); if(bb)bb.textContent=unread.length;
   $('alerts').innerHTML=(a.slice(0,12).map(x=>`<div class="alert ${x.read?'dim':''}">${esc(x.text)}<span style="color:var(--dim2);font-size:11px">${fmtAgo(x.ts)}</span></div>`).join(''))
     ||'<div class="alert sub hand">all quiet on the community front 🌵 (hit “sniff around”)</div>'}
 const markRead=()=>{setAlerts(getAlerts().map(x=>({...x,read:true})));renderAlerts()};
@@ -630,6 +638,14 @@ async function draftFor(skillName,instructions){
     if(c&&c.status&&c.status!=='running'){n=(c.recommendations||[]).length;break}}
   return n;
 }
+async function freshRecs(sinceISO){
+  try{const r=await mcp('list_recommendations',{});
+    const recs=(r||{}).recommendations||[];
+    return recs.filter(x=>String(x.createdAt||'')>sinceISO);
+  }catch(e){return []}
+}
+function escBR(t){return esc(String(t)).replace(/\n/g,'<br>')}
+function toggleAlerts(){const p=$('alertPanel');if(p)p.classList.toggle('open')}
 const JOB_STEPS={
   draft:  ['📡 job accepted by FanBase AI','🧠 reading your community — posts, mentions, top fans','✍️ writing drafts in your brand voice','📥 delivering to your queue + Telegram'],
   replies:['📡 scan accepted by FanBase AI','🧠 reading your mentions & comments on X','✍️ writing replies in your brand voice','📥 delivering to your queue + Telegram'],
@@ -666,6 +682,7 @@ async function skill(kind,arg){
     else if(kind==='mood'){trig=await mcp('trigger_skill',{skill:arg||'sentiment-cross-platform'});check='check_skill_generation'}
     else{trig=await mcp('trigger_skill',{skill:arg||'post-creator-x',
       instructions:'celebrate the most engaged community members by handle, and re-engage quiet followers with what they loved about the community'});check='check_skill_generation'}
+    const startISO=new Date(Date.now()-30000).toISOString();
     const ex=(trig||{}).executionId||'';
     L.ok(0,'📡 job accepted — id '+String(ex).slice(0,8));
     L.step(1);
@@ -681,17 +698,37 @@ async function skill(kind,arg){
       else{L.ok(2,'⚠️ no voice — '+String(reason).slice(0,110));L.step(3);L.ok(3,'📲 reason sent to Telegram');
         notifyTG('⚠️ Brand voice job returned nothing:\n'+reason);addAlert('⚠️ brand voice: '+String(reason).slice(0,100));}
     }else if(kind==='mood'){
-      L.ok(2,'🌡️ sentiment scored');L.step(3);
-      notifyTG('🌡️ Community mood scan complete. Full write-up: FanBase → Activity.\n\n'+String(reason).slice(0,400));
-      L.ok(3,'📲 sent to Telegram');addAlert('🌡️ mood scan done — write-up in FanBase');
+      L.ok(2,'🌡️ analysis written — fetching the full report');L.step(3);
+      let mood=null;
+      try{const r=await mcp('list_recommendations',{});
+        const recs=(r||{}).recommendations||[];
+        mood=recs.filter(x=>x.type==='SENTIMENT').sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0];
+      }catch(e){}
+      const d=(mood&&mood.data)||{};
+      if(d.summary){
+        L.note(`<div class="rcard"><b>🌡️ COMMUNITY MOOD — ${esc(d.trend||'?')}</b><br><br>${escBR(d.summary)}<br><br>`
+          +(d.questions&&d.questions.length?`<b>❓ questions your fans are asking:</b><br>${d.questions.slice(0,4).map(q=>'• '+escBR(q)).join('<br>')}<br><br>`:'')
+          +(d.keyInsights?`<b>💡 key insights:</b><br>${escBR(String(d.keyInsights).slice(0,700))}<br><br>`:'')
+          +(d.recommendations?`<b>🎯 what to do next:</b><br>${escBR(String(d.recommendations).slice(0,700))}`:'')
+          +'</div>');
+        notifyTG(`🌡️ COMMUNITY MOOD: ${d.trend||'?'}\n\n${String(d.summary).slice(0,500)}\n\n❓ top fan question: ${d.questions&&d.questions[0]?String(d.questions[0]).slice(0,140):'—'}`);
+        L.ok(3,'📲 full report above + sent to Telegram');
+        addAlert('🌡️ mood report ready — full analysis in the mission log');
+      }else{
+        notifyTG('🌡️ mood scan complete — raw:\n'+String(reason).slice(0,500));
+        L.ok(3,'📲 sent to Telegram');addAlert('🌡️ mood scan done');
+      }
     }else{
-      if(n>0){L.ok(2,`✍️ ${n} draft(s) written`);L.step(3);
-        notifyTG(`✨ ${kind==='replies'?'Reply':'Post'} drafts ready (${n}):\n\n`+String(window.__lastDraft||'(see app)')+'\n\n— open Superfan Factory to approve.');
+      const fresh=await freshRecs(startISO);
+      const nReal=fresh.length;
+      const newest=fresh[0]?String((fresh[0].data&&fresh[0].data.message)||fresh[0].message||'').slice(0,300):'';
+      if(nReal>0){L.ok(2,`✍️ ${nReal} NEW draft(s) landed in your queue`);L.step(3);
+        notifyTG(`✨ ${kind==='replies'?'Reply':'Post'} drafts ready (${nReal}):\n\n${newest}\n\n— open Superfan Factory to approve.`);
         L.ok(3,'📥 queue loaded + 📲 Telegram delivered');
-        addAlert(`✨ ${n} fresh draft(s) waiting in your queue`);}
-      else{L.ok(2,'⚠️ AI returned NO drafts — reason captured');L.step(3);
-        notifyTG('⚠️ Draft job finished with ZERO drafts.\n\nRaw response from FanBase:\n'+String(reason||'unknown').slice(0,600));
-        L.ok(3,'📲 reason sent to Telegram');addAlert('⚠️ draft job: 0 results — reason in Telegram');}
+        addAlert(`✨ ${nReal} fresh draft(s) waiting in your queue`);}
+      else{L.ok(2,'⚠️ queue unchanged — AI said: '+String(reason).slice(0,90));L.step(3);
+        notifyTG('⚠️ Draft job: queue unchanged.\n\nAI response:\n'+String(reason||'unknown').slice(0,600));
+        L.ok(3,'📲 reason sent to Telegram');addAlert('⚠️ draft job: no new drafts — reason in Telegram');}
     }
   }catch(e){
     L.note('<div class="rcard">⚠️ job failed: '+esc(e.message)+'</div>');
