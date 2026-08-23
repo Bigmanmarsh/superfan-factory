@@ -69,6 +69,8 @@
 .mstep.run:before{content:"◐ ";color:var(--warn);display:inline-block;animation:r 1s linear infinite}
 .mstep.pend:before{content:"○ ";color:var(--dim2)}
 .rcard{background:var(--card2);border:2px dashed var(--ink);border-radius:14px;padding:14px;margin-top:12px;font-size:14px;line-height:1.6}
+.gpanel{position:fixed;top:82px;right:14px;width:min(460px,94vw);max-height:80vh;overflow-y:auto;z-index:70;display:none;box-shadow:8px 8px 0 rgba(0,0,0,.5)}
+.gpanel.open{display:block}
 .apanel{position:fixed;top:82px;right:14px;width:min(350px,92vw);max-height:72vh;overflow-y:auto;z-index:60;display:none;box-shadow:6px 6px 0 rgba(0,0,0,.45)}
 .apanel.open{display:block}
 .abell{position:relative}
@@ -88,6 +90,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick="scan(true)">🔍 sniff around</button>
+      <button class="btn ghost sm" onclick="toggleGuide()">❓ guide</button>
       <button class="btn ghost sm" onclick="toggleAlerts()">🔔 <span id="bellBadge">0</span></button>
       <button class="btn ghost sm" onclick="logout()">🚪 bye</button>
     </div>
@@ -140,7 +143,35 @@
   <h2>💤 The quiet ones <span class="sub" style="font-size:13px;font-family:var(--hand)">they ghosted you (politely) — win them back</span></h2>
   <div id="fadefans"></div>
 
-  <div class="sketch apanel" id="alertPanel">
+  <div class="sketch gpanel" id="guidePanel">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px dashed var(--line);position:sticky;top:0;background:var(--card)">
+    <b class="hand" style="font-size:17px">🛸 How to run your community copilot</b>
+    <button class="btn ghost sm" onclick="toggleGuide()">✕</button>
+  </div>
+  <div style="padding:14px 18px;line-height:1.7;font-size:14px">
+    <b class="hand" style="font-size:15px">🚀 Start here (once)</b><br>
+    Tap <b>Connect your FanBase</b> — one login, no API keys. Your tokens never leave your browser. Then hit <b>🎤 Brand voice</b> once so every draft sounds like you.
+    <br><br><b class="hand" style="font-size:15px">☕ The 2-minute morning ritual</b><br>
+    1 · Open the app — your community loads fresh<br>
+    2 · 🔔 <b>bell</b> (top right): what happened — quiet fans, buy-intent, finished jobs<br>
+    3 · ⚡ <b>“attention?”</b> chip: your priorities in one line<br>
+    4 · ⚖️ <b>approval queue</b>: the AI drafted overnight — press <b>ship it 🚀</b>, <b>⏰ schedule</b>, or <b>tweak &amp; ship</b>
+    <br><br><b class="hand" style="font-size:15px">🖨️ One idea, every platform</b><br>
+    Type a thought (or leave empty to reuse your best post) → <b>make it everything</b> → drafts for X, Instagram, TikTok, YouTube, Discord — natively, in your voice.
+    <br><br><b class="hand" style="font-size:15px">📅 Events that run themselves</b><br>
+    Pin a mint/AMA/giveaway → live countdown → <b>hype it 📣</b> drafts announcements → <b>⏰ schedule</b> publishes on FanBase’s servers — even while you sleep.
+    <br><br><b class="hand" style="font-size:15px">💜 Your people</b><br>
+    <b>Superfans</b> — your hype crew, one click from a shoutout draft. <b>Quiet ones</b> — fans drifting away, with win-back drafts ready. The 🌡️ <b>community mood</b> scan reads a week of engagement and returns a full strategy briefing — including the questions your fans are asking.
+    <br><br><b class="hand" style="font-size:15px">⚡ Quick commands &amp; the big brain</b><br>
+    One-click chips for the daily stuff. Type <i>anything</i> in the box and the 🧠 big brain answers with your live community data.
+    <br><br><b class="hand" style="font-size:15px">📲 Telegram remote (24/7)</b><br>
+    Text <b>@Supermanmarsh_heart_bot</b>: <code>/draft</code> draft posts+replies · <code>/queue</code> what awaits · <code>/fans</code> top superfans · <code>/numbers</code> stats · <code>/mood</code> strategy scan · <code>/hunt</code> words</code> release a 24/7 open-web hunter · <code>/status</code> heartbeat. The Heart also drafts your morning queue automatically and pings you at 08:00.
+    <br><br><b class="hand" style="font-size:15px">🧹 Housekeeping</b><br>
+    <b>clear view</b> hides old drafts (nothing deleted, restore anytime) · <b>sniff around</b> refreshes radar · every job shows its workflow live in the 📋 mission log — no magic tricks.
+    <br><br><span style="color:var(--dim)">It drafts. You approve. Nothing publishes without you — revoke anytime in FanBase → Settings → AI Connections.</span>
+  </div>
+</div>
+<div class="sketch apanel" id="alertPanel">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:2px dashed var(--line)">
       <b class="hand" style="font-size:15px">🔔 Alerts</b>
       <span><button class="btn ghost sm" onclick="markRead()">read all ✓</button> <button class="btn ghost sm" onclick="toggleAlerts()">✕</button></span>
@@ -659,7 +690,8 @@ async function freshRecs(sinceISO){
   }catch(e){return []}
 }
 function escBR(t){return esc(String(t)).replace(/\n/g,'<br>')}
-function toggleAlerts(){const p=$('alertPanel');if(p)p.classList.toggle('open')}
+function toggleGuide(){const g=$('guidePanel');if(g)g.classList.toggle('open');const a=$('alertPanel');if(a&&g&&g.classList.contains('open'))a.classList.remove('open')}
+function toggleAlerts(){const p=$('alertPanel');if(p)p.classList.toggle('open');const g=$('guidePanel');if(g&&p&&p.classList.contains('open'))g.classList.remove('open')}
 const JOB_STEPS={
   draft:  ['📡 job accepted by FanBase AI','🧠 reading your community — posts, mentions, top fans','✍️ writing drafts in your brand voice','📥 delivering to your queue + Telegram'],
   replies:['📡 scan accepted by FanBase AI','🧠 reading your mentions & comments on X','✍️ writing replies in your brand voice','📥 delivering to your queue + Telegram'],
