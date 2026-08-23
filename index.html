@@ -89,7 +89,7 @@
       <p class="sub hand" id="greet">your community, but make it cozy</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn ghost sm" onclick="scan(true)">🔍 sniff around</button>
+      <button class="btn ghost sm" onclick="scan(true)">🔍 scan now</button>
       <button class="btn ghost sm" onclick="toggleGuide()">❓ guide</button>
       <button class="btn ghost sm" onclick="toggleAlerts()">🔔 <span id="bellBadge">0</span></button>
       <button class="btn ghost sm" onclick="logout()">🚪 bye</button>
@@ -134,7 +134,7 @@
 
   <h2>📋 Mission log <span class="sub" style="font-size:13px;font-family:var(--hand)">watch every job work — step by step, no magic tricks</span></h2>
   <div class="sketch card" style="transform:rotate(.3deg)">
-    <div id="mission"><div class="sub hand" style="padding:4px 0">idle — run a draft, a mood scan or hit “sniff around” and the workflow appears here 📡</div></div>
+    <div id="mission"><div class="sub hand" style="padding:4px 0">idle — run a draft, a mood scan or hit “scan now” and the workflow appears here 📡</div></div>
   </div>
 
   <h2>💜 The superfans <span class="sub" style="font-size:13px;font-family:var(--hand)">the ones who'd fight for you in the replies</span></h2>
@@ -598,7 +598,7 @@ function fmtAgo(ts){
 function renderAlerts(){const a=getAlerts(),unread=a.filter(x=>!x.read);
   const bb=$('bellBadge'); if(bb)bb.textContent=unread.length;
   $('alerts').innerHTML=(a.slice(0,12).map(x=>`<div class="alert ${x.read?'dim':''}">${esc(x.text)}<span style="color:var(--dim2);font-size:11px">${fmtAgo(x.ts)}</span></div>`).join(''))
-    ||'<div class="alert sub hand">all quiet on the community front 🌵 (hit “sniff around”)</div>'}
+    ||'<div class="alert sub hand">all quiet on the community front 🌵 (hit “scan now”)</div>'}
 const markRead=()=>{setAlerts(getAlerts().map(x=>({...x,read:true})));renderAlerts()};
 const BUY=['price','cost','how much','buy','merch','shop','discount','code','available','order'];
 const NOLOG={step(){},ok(){},note(){}};
