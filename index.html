@@ -426,7 +426,13 @@ let _tgPollTimer=null;
 function startPocketCommands(){
   if(_tgPollTimer)clearInterval(_tgPollTimer);
   const my=getMyBot();
-  if(!my.token)return;
+  if(!my.token){
+    if(_isOwner){
+      // owner's browser polls their bot for instant replies too
+      startOwnerPoll();
+    }
+    return;
+  }
   _tgPollTimer=setInterval(async()=>{
     try{
       const offs=parseInt(localStorage.sf_tg_offset||'0');
@@ -466,6 +472,49 @@ function startPocketCommands(){
         }
       }
       localStorage.sf_tg_offset=String(maxUpdate);
+    }catch(e){}
+  },3000);
+}
+function startOwnerPoll(){
+  let _ownerTimer=null;
+  _ownerTimer=setInterval(async()=>{
+    try{
+      const offs=parseInt(localStorage.sf_owner_tg_offset||'0');
+      const r=await fetch(`https://api.telegram.org/bot${OWNER_TG_TOKEN}/getUpdates?offset=${offs}&timeout=0`).then(x=>x.json());
+      if(!r.ok||!r.result||!r.result.length)return;
+      let maxUpdate=offs;
+      for(const u of r.result){
+        maxUpdate=Math.max(maxUpdate,u.update_id+1);
+        // skip commands older than 2 minutes (Heart may have already handled them)
+        if(u.message&&u.message.date&&(Date.now()/1000-u.message.date)>120)continue;
+        const text=(u.message||{}).text||'';
+        const low=text.toLowerCase().trim();
+        if(!low.startsWith('/'))continue;
+        let reply=null;
+        try{
+          if(low.startsWith('/fans')){
+            const cr=await mcp('list_crm',{limit:5});
+            const fans=(cr||{}).fans||[];
+            reply=fans.length?'💜 top superfans:\n'+fans.map(f=>`• @${(f.profile||{}).username||f.name} — score ${f.engagementScore??'?'}`).join('\n'):'💜 no fans yet';
+          }else if(low.startsWith('/numbers')){
+            const an=await mcp('get_account_analytics',{});
+            const accs=(an||{}).accounts||[];
+            reply=accs.length?'📊 your accounts:\n'+accs.map(a=>`• ${a.platform}: ${a.followers} followers · ${a.likes} likes`).join('\n'):'📊 no accounts';
+          }else if(low.startsWith('/queue')){
+            const rq=await mcp('list_recommendations',{});
+            const items=(rq||{}).recommendations||[];
+            reply=items.length?'⚖️ waiting for approval:\n\n'+items.slice(0,5).map((x,i)=>`${i+1}. ${String((x.data||{}).message||x.message||'').slice(0,70)}…`).join('\n'):'⚖️ queue empty — hit ✨ in the app';
+          }else if(low.startsWith('/status')){
+            reply='🫀 Pocket Commands active (owner mode — instant while dashboard is open)';
+          }
+        }catch(e){reply='⚠️ '+String(e).slice(0,120)}
+        if(reply){
+          await fetch(`https://api.telegram.org/bot${OWNER_TG_TOKEN}/sendMessage`,
+            {method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({chat_id:OWNER_TG_CHAT,text:reply.slice(0,3000)})}).catch(()=>{});
+        }
+      }
+      localStorage.sf_owner_tg_offset=String(maxUpdate);
     }catch(e){}
   },3000);
 }
