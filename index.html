@@ -168,6 +168,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick="scan(true)">🔍 scan now</button>
+      <button class="btn ghost sm" id="tgBtn" onclick="connectMyBot()" style="display:none">📲</button>
       <button class="btn ghost sm" onclick="toggleGuide()">❓ guide</button>
       <button class="btn ghost sm" onclick="toggleAlerts()">🔔 <span id="bellBadge">0</span></button>
       <button class="btn ghost sm" onclick="logout()">🚪 bye</button>
@@ -311,20 +312,58 @@ const MCP='https://api.copilot.fanbase.gg/mcp', TOK='https://api.copilot.fanbase
       REG='https://api.copilot.fanbase.gg/register', AUTH='https://api.copilot.fanbase.gg/authorize';
 const REDIRECT=location.origin+location.pathname;
 const IN_IFRAME=(window.self!==window.top);
-const TG_TOKEN='8347923517:AAHz2igDRXP1O7K1y0Nqz6qzyd0I-iznPCA';   // owner's bot
-const TG_CHAT='8080960010';
-const OWNER_ORG='b02b0c4f-0b53-4b75-84f2-d1f4ac1f6dd4';           // only this org sends to Telegram
+const OWNER_TG_TOKEN='8347923517:AAHz2igDRXP1O7K1y0Nqz6qzyd0I-iznPCA';
+const OWNER_TG_CHAT='8080960010';
+const OWNER_ORG='b02b0c4f-0b53-4b75-84f2-d1f4ac1f6dd4';
 let _isOwner=false;
-function checkOwner(){                                            // called after first data load
-  try{ _isOwner = (B && B.accounts && B.accounts[0] &&
+function checkOwner(){
+  try{ _isOwner = (B && B.accounts &&
     B.accounts.some(a=>String(a.organizationId||'')===OWNER_ORG)) || false;
   }catch(e){ _isOwner=false }
+  const tb=$('tgBtn');
+  if(tb){tb.style.display=_isOwner?'none':'inline-block';tb.title=_isOwner?'Owner Telegram active (Heart)':'Connect your own Telegram bot'}
 }
-function notifyTG(text){
-  if(!_isOwner)return;                                            // privacy gate: only the owner
-  fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,
-    {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({chat_id:TG_CHAT,text:text.slice(0,3500)})}).catch(()=>{})}
+function getMyBot(){ return { token:localStorage.sf_tg_token||'', chat:localStorage.sf_tg_chat||'' } }
+async function notifyTG(text){
+  const my=getMyBot();
+  if(my.token&&my.chat){
+    try{await fetch(`https://api.telegram.org/bot${my.token}/sendMessage`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({chat_id:my.chat,text:text.slice(0,3500)})})}catch(e){}
+    return;
+  }
+  if(_isOwner){
+    try{await fetch(`https://api.telegram.org/bot${OWNER_TG_TOKEN}/sendMessage`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({chat_id:OWNER_TG_CHAT,text:text.slice(0,3500)})})}catch(e){}
+  }
+}
+async function connectMyBot(){
+  const token=prompt('📲 Paste your Telegram bot token\n(from @BotFather — looks like 123456:ABC-xyz…)\n\nDon\'t have one? Open Telegram → search @BotFather → send /newbot → follow steps → copy the token');
+  if(!token||token.length<20)return;
+  try{
+    const me=await fetch(`https://api.telegram.org/bot${token}/getMe`).then(r=>r.json());
+    if(!me.ok){alert('⚠️ Invalid token. Check it and try again.');return}
+    const ups=await fetch(`https://api.telegram.org/bot${token}/getUpdates`).then(r=>r.json());
+    const chat=(ups.result||[]).map(u=>(u.message||{}).chat||{}).find(c=>c.id);
+    if(!chat||!chat.id){alert('⚠️ Now send /start to your bot @'+me.result.username+' in Telegram, then try again.');return}
+    localStorage.sf_tg_token=token;
+    localStorage.sf_tg_chat=String(chat.id);
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({chat_id:chat.id,text:'🛸 Superfan Factory connected! Your PA will text you here when drafts are ready, mood scans finish, or jobs complete.'})});
+    alert('✅ Connected to @'+me.result.username+' — check your Telegram for a test message!');
+    renderTelegramStatus();
+  }catch(e){alert('⚠️ '+e.message)}
+}
+function disconnectMyBot(){localStorage.removeItem('sf_tg_token');localStorage.removeItem('sf_tg_chat');renderTelegramStatus()}
+function renderTelegramStatus(){
+  const el=$('tgStatus');if(!el)return;
+  const my=getMyBot();
+  el.innerHTML=my.token
+    ?'<span style="color:var(--ok)">✅ your bot connected</span> · <button class="btn ghost sm" onclick="disconnectMyBot()">disconnect</button>'
+    :'<button class="btn ghost sm" onclick="connectMyBot()">📲 connect your Telegram</button>';
+}
 const LS={acc:'sf_access',exp:'sf_exp',ref:'sf_refresh',cid:'sf_client',ver:'sf_verifier'};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1118,6 +1157,7 @@ window.onerror=function(msg){try{
     $('app').style.display='block';
     await refresh();
     checkOwner();
+    renderTelegramStatus();
     renderEvents();
     scan(false).catch(()=>{});
     setInterval(()=>{renderEvents()},30000);          // live countdowns
