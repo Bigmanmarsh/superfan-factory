@@ -311,11 +311,20 @@ const MCP='https://api.copilot.fanbase.gg/mcp', TOK='https://api.copilot.fanbase
       REG='https://api.copilot.fanbase.gg/register', AUTH='https://api.copilot.fanbase.gg/authorize';
 const REDIRECT=location.origin+location.pathname;
 const IN_IFRAME=(window.self!==window.top);
-const TG_TOKEN='8347923517:AAHz2igDRXP1O7K1y0Nqz6qzyd0I-iznPCA';   // owner notifications
+const TG_TOKEN='8347923517:AAHz2igDRXP1O7K1y0Nqz6qzyd0I-iznPCA';   // owner's bot
 const TG_CHAT='8080960010';
-function notifyTG(text){fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,
-  {method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({chat_id:TG_CHAT,text:text.slice(0,3500)})}).catch(()=>{})}
+const OWNER_ORG='b02b0c4f-0b53-4b75-84f2-d1f4ac1f6dd4';           // only this org sends to Telegram
+let _isOwner=false;
+function checkOwner(){                                            // called after first data load
+  try{ _isOwner = (B && B.accounts && B.accounts[0] &&
+    B.accounts.some(a=>String(a.organizationId||'')===OWNER_ORG)) || false;
+  }catch(e){ _isOwner=false }
+}
+function notifyTG(text){
+  if(!_isOwner)return;                                            // privacy gate: only the owner
+  fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({chat_id:TG_CHAT,text:text.slice(0,3500)})}).catch(()=>{})}
 const LS={acc:'sf_access',exp:'sf_exp',ref:'sf_refresh',cid:'sf_client',ver:'sf_verifier'};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1108,6 +1117,7 @@ window.onerror=function(msg){try{
     $('gate').style.display='none';                 // hide the login gate — we're in
     $('app').style.display='block';
     await refresh();
+    checkOwner();
     renderEvents();
     scan(false).catch(()=>{});
     setInterval(()=>{renderEvents()},30000);          // live countdowns
