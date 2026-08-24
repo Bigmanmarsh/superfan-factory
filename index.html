@@ -420,7 +420,7 @@ async function testMyBot(){
   }catch(e){alert('⚠️ '+e.message)}
 }
 async function connectMyBot(){togglePocket()}
-function disconnectMyBot(){localStorage.removeItem('sf_tg_token');localStorage.removeItem('sf_tg_chat');renderTelegramStatus()};stopPocketCommands()
+function disconnectMyBot(){localStorage.removeItem('sf_tg_token');localStorage.removeItem('sf_tg_chat');renderTelegramStatus();stopPocketCommands()}
 // ── ⚡ Instant Pocket Commands (browser polls your bot while app is open) ──
 let _tgPollTimer=null;
 function startPocketCommands(){
