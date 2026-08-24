@@ -168,7 +168,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick="scan(true)">🔍 scan now</button>
-      <button class="btn ghost sm" id="tgBtn" onclick="connectMyBot()" style="display:none">📲</button>
+      <button class="btn ghost sm" id="tgBtn" onclick="togglePocket()" style="display:none">📲</button>
       <button class="btn ghost sm" onclick="toggleGuide()">❓ guide</button>
       <button class="btn ghost sm" onclick="toggleAlerts()">🔔 <span id="bellBadge">0</span></button>
       <button class="btn ghost sm" onclick="logout()">🚪 bye</button>
@@ -222,7 +222,14 @@
   <h2>💤 The quiet ones <span class="sub" style="font-size:13px;font-family:var(--hand)">they ghosted you (politely) — win them back</span></h2>
   <div id="fadefans"></div>
 
-  <div class="sketch gpanel" id="guidePanel">
+  <div class="sketch gpanel" id="pocketPanel">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1.5px dashed rgba(139,108,255,.25);position:sticky;top:0;background:var(--card);backdrop-filter:blur(16px);z-index:5">
+    <b class="hand" style="font-size:17px">📲 Pocket Link</b>
+    <button class="btn ghost sm" onclick="togglePocket()">✕</button>
+  </div>
+  <div id="pocketBody"></div>
+</div>
+<div class="sketch gpanel" id="guidePanel">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px dashed var(--line);position:sticky;top:0;background:var(--card)">
     <b class="hand" style="font-size:17px">🛸 How to run your community copilot</b>
     <button class="btn ghost sm" onclick="toggleGuide()">✕</button>
@@ -338,31 +345,87 @@ async function notifyTG(text){
        body:JSON.stringify({chat_id:OWNER_TG_CHAT,text:text.slice(0,3500)})})}catch(e){}
   }
 }
-async function connectMyBot(){
-  const token=prompt('📲 Paste your Telegram bot token\n(from @BotFather — looks like 123456:ABC-xyz…)\n\nDon\'t have one? Open Telegram → search @BotFather → send /newbot → follow steps → copy the token');
-  if(!token||token.length<20)return;
+function togglePocket(){
+  const p=$('pocketPanel');if(!p)return;
+  p.classList.toggle('open');
+  const g=$('guidePanel'),a=$('alertPanel');
+  if(p.classList.contains('open')){if(g)g.classList.remove('open');if(a)a.classList.remove('open')}
+  renderPocketStatus();
+}
+function renderPocketStatus(){
+  const el=$('pocketBody');if(!el)return;
+  const my=getMyBot();
+  if(my.token){
+    el.innerHTML=`
+      <div style="padding:16px 20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)"></span>
+          <b class="hand" style="font-size:16px;color:var(--ok)">Your pocket is linked ✅</b>
+        </div>
+        <p style="color:var(--dim);font-size:13.5px;line-height:1.6">Every draft, mood scan, and job result now lands on your phone.<br>Chat ID: <code style="background:var(--card2);padding:2px 6px;border-radius:4px;font-size:12px">${esc(my.chat)}</code></p>
+        <button class="btn ghost sm" style="margin-top:14px" onclick="testMyBot()">📲 send test</button>
+        <button class="btn ghost sm" style="margin-top:14px;margin-left:6px" onclick="disconnectMyBot();renderPocketStatus()">unlink</button>
+      </div>`;
+    return;
+  }
+  el.innerHTML=`
+    <div style="padding:16px 20px;line-height:1.7;font-size:14px">
+      <p style="color:var(--dim);margin-bottom:16px">Get your PA's updates on your phone — drafts, mood scans, job results. Free, takes 5 minutes, your tokens stay in your browser.</p>
+      <div style="display:flex;gap:12px;margin-bottom:14px">
+        <div style="flex:none;width:28px;height:28px;border:2px dashed var(--acc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--hand);font-weight:800;color:var(--acc2);font-size:14px">1</div>
+        <div><b>Create your bot</b><br><span style="color:var(--dim);font-size:13px">Open Telegram → search <b>@BotFather</b> → send <code style="background:var(--card2);padding:1px 5px;border-radius:4px">/newbot</code> → follow his steps → he gives you a <b>token</b> (looks like <code style="background:var(--card2);padding:1px 5px;border-radius:4px;font-size:11px">123456:ABC-xyz…</code>)</span></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px">
+        <div style="flex:none;width:28px;height:28px;border:2px dashed var(--acc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--hand);font-weight:800;color:var(--acc2);font-size:14px">2</div>
+        <div><b>Say hi to your bot</b><br><span style="color:var(--dim);font-size:13px">Open the link BotFather gives you (or search your bot's username) → tap <b>Start</b> → send <code style="background:var(--card2);padding:1px 5px;border-radius:4px">hi</code></span></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        <div style="flex:none;width:28px;height:28px;border:2px dashed var(--acc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--hand);font-weight:800;color:var(--acc2);font-size:14px">3</div>
+        <div style="flex:1"><b>Paste your token</b>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="text" id="botTokenInput" placeholder="paste the token here…" style="flex:1">
+            <button class="btn sm" onclick="linkMyBot()">link 📲</button>
+          </div>
+        </div>
+      </div>
+      <p style="color:var(--dim2);font-size:12px">🔒 Your token never leaves this browser. Unlink anytime. No servers involved.</p>
+    </div>`;
+}
+async function linkMyBot(){
+  const token=($('botTokenInput')||{}).value||'';
+  if(token.length<20){alert('paste the full token from BotFather first');return}
   try{
     const me=await fetch(`https://api.telegram.org/bot${token}/getMe`).then(r=>r.json());
-    if(!me.ok){alert('⚠️ Invalid token. Check it and try again.');return}
+    if(!me.ok){alert('⚠️ Invalid token — check it and try again');return}
     const ups=await fetch(`https://api.telegram.org/bot${token}/getUpdates`).then(r=>r.json());
     const chat=(ups.result||[]).map(u=>(u.message||{}).chat||{}).find(c=>c.id);
-    if(!chat||!chat.id){alert('⚠️ Now send /start to your bot @'+me.result.username+' in Telegram, then try again.');return}
+    if(!chat||!chat.id){alert('⚠️ Now send "hi" to @'+me.result.username+' in Telegram, then try again');return}
     localStorage.sf_tg_token=token;
     localStorage.sf_tg_chat=String(chat.id);
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`,
       {method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({chat_id:chat.id,text:'🛸 Superfan Factory connected! Your PA will text you here when drafts are ready, mood scans finish, or jobs complete.'})});
-    alert('✅ Connected to @'+me.result.username+' — check your Telegram for a test message!');
+       body:JSON.stringify({chat_id:chat.id,text:'🛸 Superfan Factory linked! Your PA will text you here when anything important happens.'})});
+    renderPocketStatus();
     renderTelegramStatus();
   }catch(e){alert('⚠️ '+e.message)}
 }
+async function testMyBot(){
+  const my=getMyBot();if(!my.token)return;
+  try{
+    await fetch(`https://api.telegram.org/bot${my.token}/sendMessage`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({chat_id:my.chat,text:'📲 Pocket Link test — if you can read this, the connection is alive. — 🛸'})});
+    alert('📲 sent! Check your Telegram.');
+  }catch(e){alert('⚠️ '+e.message)}
+}
+async function connectMyBot(){togglePocket()}
 function disconnectMyBot(){localStorage.removeItem('sf_tg_token');localStorage.removeItem('sf_tg_chat');renderTelegramStatus()}
 function renderTelegramStatus(){
   const el=$('tgStatus');if(!el)return;
   const my=getMyBot();
   el.innerHTML=my.token
     ?'<span style="color:var(--ok)">✅ your bot connected</span> · <button class="btn ghost sm" onclick="disconnectMyBot()">disconnect</button>'
-    :'<button class="btn ghost sm" onclick="connectMyBot()">📲 connect your Telegram</button>';
+    :'<button class="btn ghost sm" onclick="togglePocket()">📲 connect your Telegram</button>';
 }
 const LS={acc:'sf_access',exp:'sf_exp',ref:'sf_refresh',cid:'sf_client',ver:'sf_verifier'};
 const $=id=>document.getElementById(id);
