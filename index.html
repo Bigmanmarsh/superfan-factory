@@ -327,7 +327,7 @@ function checkOwner(){
   try{ _isOwner = String(B&&B.orgId||'')===OWNER_ORG; }
   catch(e){ _isOwner=false }
   const tb=$('tgBtn');
-  if(tb){tb.style.display=_isOwner?'none':'inline-block';tb.title=_isOwner?'Owner Telegram active (Heart)':'Connect your own Telegram bot'}
+  if(tb){tb.style.display='inline-block';tb.title='📲 Pocket Link — connect your Telegram'}
 }
 function getMyBot(){ return { token:localStorage.sf_tg_token||'', chat:localStorage.sf_tg_chat||'' } }
 async function notifyTG(text){
@@ -369,6 +369,7 @@ function renderPocketStatus(){
   }
   el.innerHTML=`
     <div style="padding:16px 20px;line-height:1.7;font-size:14px">
+      ${_isOwner?'<div style="background:rgba(74,222,128,.08);border:1.5px dashed var(--ok);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px"><b style="color:var(--ok)">🫀 Owner mode active</b><br><span style="color:var(--dim)">Your Telegram is connected via the Heart (24/7) + browser instant replies. Below is what other users see when they connect their own bot.</span></div>':''}
       <p style="color:var(--dim);margin-bottom:16px">Get your PA's updates on your phone — drafts, mood scans, job results. Free, takes 5 minutes, your tokens stay in your browser.</p>
       <div style="display:flex;gap:12px;margin-bottom:14px">
         <div style="flex:none;width:28px;height:28px;border:2px dashed var(--acc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--hand);font-weight:800;color:var(--acc2);font-size:14px">1</div>
