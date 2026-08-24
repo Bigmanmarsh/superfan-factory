@@ -324,9 +324,8 @@ const OWNER_TG_CHAT='8080960010';
 const OWNER_ORG='b02b0c4f-0b53-4b75-84f2-d1f4ac1f6dd4';
 let _isOwner=false;
 function checkOwner(){
-  try{ _isOwner = (B && B.accounts &&
-    B.accounts.some(a=>String(a.organizationId||'')===OWNER_ORG)) || false;
-  }catch(e){ _isOwner=false }
+  try{ _isOwner = String(B&&B.orgId||'')===OWNER_ORG; }
+  catch(e){ _isOwner=false }
   const tb=$('tgBtn');
   if(tb){tb.style.display=_isOwner?'none':'inline-block';tb.title=_isOwner?'Owner Telegram active (Heart)':'Connect your own Telegram bot'}
 }
@@ -618,7 +617,8 @@ async function refresh(){
   PLATFORMS=((conns||{}).platforms||[]).filter(p=>p.platform!=='fanbase'&&((p.connections&&p.connections.length)||p.connected===true)).map(p=>p.platform);
   if(!PLATFORMS.length)PLATFORMS=['twitter'];
   const accounts=(an||{}).accounts||[],fans=((cr||{}).fans||[]),items=(recs||{}).recommendations||[];
-  B={accounts,fans,total:((cr||{}).total)??fans.length,sup:fans.slice(0,5),
+  const orgId=(an||{}).organizationId||'';
+  B={orgId,accounts,fans,total:((cr||{}).total)??fans.length,sup:fans.slice(0,5),
      fade:fans.map(f=>({f,d:daysSince(f.lastActive)})).filter(x=>x.d>=1).sort((a,b)=>b.d-a.d).slice(0,5),
      recs:items.map(r=>({id:r.recommendationId||r.id,type:r.type,status:r.status,
        msg:(r.data&&r.data.message)||r.message||r.question||'',plat:((r.integrations||[{}])[0]||{}).name||'twitter'}))};
